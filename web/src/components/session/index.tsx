@@ -21,7 +21,12 @@ import { AnnotateDrawer } from "@/src/features/scores/components/AnnotateDrawer"
 import { Button } from "@/src/components/ui/button";
 import { CommentDrawerButton } from "@/src/features/comments/CommentDrawerButton";
 import { useSession } from "next-auth/react";
-import { Download, ExternalLinkIcon } from "lucide-react";
+import {
+  Download,
+  ExternalLinkIcon,
+  MessageSquareText,
+} from "lucide-react";
+import { openChatPreview } from "@/src/components/session/chat-preview";
 import { usePostHogClientCapture } from "@/src/features/posthog-analytics/usePostHogClientCapture";
 import Page from "@/src/components/layouts/page";
 import {
@@ -390,6 +395,16 @@ export const SessionPage: React.FC<{
                 listKey="sessions"
               />
             )}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                openChatPreview({ sessionId, projectId });
+              }}
+              title="Chat Preview"
+            >
+              <MessageSquareText className="h-4 w-4" />
+            </Button>
             <Button
               variant="outline"
               size="icon"
@@ -890,6 +905,16 @@ export const SessionEventsPage: React.FC<{
                 listKey="sessions"
               />
             )}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                openChatPreview({ sessionId, projectId });
+              }}
+              title="Chat Preview"
+            >
+              <MessageSquareText className="h-4 w-4" />
+            </Button>
             <CommentDrawerButton
               key="comment"
               variant="outline"
