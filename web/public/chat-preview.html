@@ -4,17 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Chat Preview</title>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@19",
-    "react/jsx-runtime": "https://esm.sh/react@19/jsx-runtime",
-    "react-dom/client": "https://esm.sh/react-dom@19/client",
-    "react-markdown": "https://esm.sh/react-markdown@9?deps=react@19",
-    "remark-gfm": "https://esm.sh/remark-gfm@4"
-  }
-}
-</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#111113;--surface:#18181b;--border:#27272a;--border2:#3f3f46;--text:#e4e4e7;--muted:#71717a;--accent:#60a5fa;--user-bg:#2563eb;--r:12px}
@@ -88,10 +77,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 <body>
 <div id="root"></div>
 <script type="module">
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { createRoot } from 'react-dom/client';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import React, { useState, useEffect, useRef, useCallback } from 'https://cdn.jsdelivr.net/npm/react@19/+esm';
+import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@19/client/+esm';
+import ReactMarkdown from 'https://esm.sh/react-markdown@9?external=react&deps=react@19';
+import remarkGfm from 'https://esm.sh/remark-gfm@4';
 
 const h = React.createElement;
 
