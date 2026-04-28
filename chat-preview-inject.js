@@ -1,4 +1,4 @@
-// Chat Preview button injector — opens the React chat preview page
+// Chat Preview button injector — opens the standalone React chat preview page
 (function() {
   'use strict';
 
@@ -27,7 +27,7 @@
     var sessionId = getSessionId();
     if (!projectId || !sessionId) return;
     window.open(
-      '/project/' + projectId + '/sessions/' + encodeURIComponent(sessionId) + '/chat-preview',
+      '/chat-preview.html?projectId=' + encodeURIComponent(projectId) + '&sessionId=' + encodeURIComponent(sessionId),
       '_blank'
     );
   }

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chat Preview</title>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@19",
+    "react/jsx-runtime": "https://esm.sh/react@19/jsx-runtime",
+    "react-dom/client": "https://esm.sh/react-dom@19/client",
+    "react-markdown": "https://esm.sh/react-markdown@9?deps=react@19",
+    "remark-gfm": "https://esm.sh/remark-gfm@4"
+  }
+}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#111113;--surface:#18181b;--border:#27272a;--border2:#3f3f46;--text:#e4e4e7;--muted:#71717a;--accent:#60a5fa;--user-bg:#2563eb;--r:12px}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+#root{height:100%}
+.app{display:flex;flex-direction:column;height:100%;max-width:860px;margin:0 auto}
+.header{padding:16px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.header h1{font-size:15px;font-weight:600}
+.header .meta{font-size:12px;color:var(--muted);margin-top:2px}
+.header .close-btn{color:var(--accent);background:none;border:none;font-size:13px;font-weight:500;cursor:pointer}
+.header .close-btn:hover{text-decoration:underline}
+.chat{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px;scrollbar-width:thin;scrollbar-color:#27272a transparent}
+.chat::-webkit-scrollbar{width:6px}.chat::-webkit-scrollbar-thumb{background:#27272a;border-radius:3px}
+.divider{display:flex;align-items:center;gap:12px;padding:8px 0;color:var(--muted);font-size:11px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.role-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding:0 4px}
+.role-label.right{text-align:right}
+.timestamp{font-size:11px;color:var(--muted);padding:0 4px}
+.timestamp.right{text-align:right}
+.turn{display:flex;flex-direction:column;gap:6px;margin-bottom:20px}
+.bubble-user{align-self:flex-end;max-width:75%;padding:12px 16px;border-radius:var(--r);border-bottom-right-radius:4px;background:var(--user-bg);color:#fff;font-size:14px;line-height:1.65;word-break:break-word}
+.bubble-asst{align-self:flex-start;max-width:75%;padding:12px 16px;border-radius:var(--r);border-bottom-left-radius:4px;background:var(--surface);color:var(--text);border:1px solid var(--border);font-size:14px;line-height:1.65;word-break:break-word}
+/* Markdown styles inside bubbles */
+.bubble-asst p{margin:0 0 8px}.bubble-asst p:last-child{margin-bottom:0}
+.bubble-asst code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:12px;font-family:monospace;color:#f472b6}
+.bubble-asst pre{background:rgba(0,0,0,.3);padding:10px 12px;border-radius:8px;overflow-x:auto;margin:8px 0}
+.bubble-asst pre code{background:none;padding:0;color:#a1a1aa;font-size:12px}
+.bubble-asst table{border-collapse:collapse;margin:8px 0;width:100%}
+.bubble-asst th,.bubble-asst td{border:1px solid var(--border2);padding:6px 10px;font-size:13px;text-align:left}
+.bubble-asst th{background:rgba(255,255,255,.05);font-weight:600;color:#e4e4e7}
+.bubble-asst td{color:#a1a1aa}
+.bubble-asst ul,.bubble-asst ol{padding-left:20px;margin:6px 0}
+.bubble-asst strong{font-weight:600}
+.bubble-asst a{color:var(--accent)}
+.bubble-asst blockquote{border-left:3px solid var(--accent);padding-left:12px;margin:8px 0;color:var(--muted)}
+.bubble-asst h1,.bubble-asst h2,.bubble-asst h3{margin:10px 0 6px;font-weight:600}
+.bubble-asst h1{font-size:18px}.bubble-asst h2{font-size:16px}.bubble-asst h3{font-size:15px}
+/* Tool card */
+.tool-card{align-self:flex-start;max-width:80%;background:#09090b;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;margin:4px 0}
+.tool-card.ok{border-left:3px solid #34d399}
+.tool-card.fail{border-left:3px solid #ef4444}
+.tool-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.tool-icon{font-size:14px}
+.tool-card.ok .tool-icon{color:#34d399}
+.tool-card.fail .tool-icon{color:#ef4444}
+.tool-name{font-weight:600;color:var(--text);font-size:13px}
+.tool-meta{margin-left:auto;color:var(--muted);font-size:11px}
+.tool-toggle{display:flex;align-items:center;gap:4px;margin-top:6px;background:none;border:none;color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;padding:0}
+.tool-toggle:hover{color:var(--text)}
+.tool-toggle svg{width:12px;height:12px}
+.tool-pre{margin-top:4px;background:rgba(0,0,0,.3);padding:8px 10px;border-radius:6px;font-size:12px;line-height:1.5;overflow-x:auto;color:var(--muted);max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;font-family:monospace}
+/* Widget iframe */
+.widget-wrap{margin:8px 0;border-radius:10px;border:1px solid var(--border2);overflow:hidden;background:#18181b}
+.widget-title{background:#27272a;padding:6px 12px;font-size:12px;font-weight:500;color:var(--muted);border-bottom:1px solid var(--border2)}
+.widget-iframe{width:100%;border:none}
+/* Loading & auth */
+.center{display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px}
+.spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.auth-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:400px;width:90%}
+.auth-box h2{font-size:16px;font-weight:600;margin-bottom:4px}
+.auth-box p{font-size:13px;color:var(--muted);margin-bottom:16px}
+.auth-box label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:4px;margin-top:12px}
+.auth-box input{width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none}
+.auth-box input:focus{border-color:var(--accent)}
+.auth-box button{margin-top:16px;width:100%;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer}
+.auth-box button:hover{opacity:.9}
+.auth-box .error{color:#ef4444;font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createRoot } from 'react-dom/client';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
+const h = React.createElement;
+
+// ── URL params ──
+const params = new URLSearchParams(location.search);
+const P_SESSION = params.get('sessionId');
+const P_PROJECT = params.get('projectId');
+
+// ── API key storage ──
+const STORAGE_KEY = 'lf-chat-preview-keys';
+function loadKeys() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null; } catch { return null; }
+}
+function saveKeys(pk, sk) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ pk, sk }));
+}
+
+// ── Data extraction helpers ──
+function parseIfStr(v) {
+  if (typeof v === 'string') { try { return JSON.parse(v); } catch { return v; } }
+  return v;
+}
+function extractInput(v) {
+  if (!v) return '';
+  if (typeof v === 'string') { try { return extractInput(JSON.parse(v)); } catch { return v; } }
+  if (typeof v === 'object' && v !== null) {
+    if (v.message) return String(v.message);
+    if (v.content) return String(v.content);
+    if (v.text) return String(v.text);
+    if (Array.isArray(v)) {
+      const last = v.filter(m => m.role === 'user' || m.role === 'assistant').pop();
+      if (last) return last.content || '';
+      return v.map(extractInput).filter(Boolean).join('\n');
+    }
+    return JSON.stringify(v, null, 2);
+  }
+  return String(v);
+}
+function extractEvents(v) {
+  v = parseIfStr(v);
+  if (v && typeof v === 'object' && Array.isArray(v.events)) return v.events;
+  return null;
+}
+function extractFallback(v) {
+  v = parseIfStr(v);
+  if (!v) return '';
+  if (typeof v === 'object' && v !== null) {
+    if (typeof v.content === 'string') return v.content;
+    if (v.events) return '';
+  }
+  return extractInput(v);
+}
+
+// ── Widget parser ──
+const FENCE_RE = /```(show-widget|svg|html)\s*\n([\s\S]*?)\n```/g;
+function hasWidgetFence(t) { return t && /```(?:show-widget|svg|html)\s*\n/.test(t); }
+function parseWidgets(text) {
+  if (!text || !hasWidgetFence(text)) return null;
+  const segs = []; let last = 0;
+  const re = new RegExp(FENCE_RE.source, 'g'); let m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) { const b = text.slice(last, m.index).trim(); if (b) segs.push({ type: 'text', content: b }); }
+    const lang = m[1], body = m[2];
+    let widget = null;
+    if (lang === 'svg' || lang === 'html') { const tr = body.trim(); if (tr) widget = { code: tr, title: lang }; }
+    else { try { const p = JSON.parse(body); if (p && typeof p.widget_code === 'string') widget = { code: p.widget_code, title: p.title }; } catch {} }
+    if (widget) segs.push({ type: 'widget', content: widget.code, title: widget.title });
+    else segs.push({ type: 'text', content: m[0] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) { const a = text.slice(last).trim(); if (a) segs.push({ type: 'text', content: a }); }
+  return segs.length > 0 ? segs : null;
+}
+
+// ── Markdown component ──
+const mdComps = {
+  code: ({ className, children, ...p }) => {
+    const inline = !className;
+    return inline
+      ? h('code', { className: 'inline-code', ...p }, children)
+      : h('code', { className: (className || '') + ' block-code', ...p }, children);
+  },
+  pre: ({ children, ...p }) => h('pre', p, children),
+  table: ({ children, ...p }) => h('table', p, children),
+  th: ({ children, ...p }) => h('th', p, children),
+  td: ({ children, ...p }) => h('td', p, children),
+  a: ({ children, href, ...p }) => h('a', { href, target: '_blank', rel: 'noopener noreferrer', ...p }, children),
+  p: ({ children, ...p }) => h('p', p, children),
+  ul: ({ children, ...p }) => h('ul', p, children),
+  ol: ({ children, ...p }) => h('ol', p, children),
+  blockquote: ({ children, ...p }) => h('blockquote', p, children),
+};
+function ChatMarkdown({ content }) {
+  return h(ReactMarkdown, { remarkPlugins: [remarkGfm], components: mdComps }, content);
+}
+
+// ── Widget renderer ──
+function WidgetRenderer({ code, title }) {
+  const ref = useRef(null);
+  const [height, setHeight] = useState(200);
+  const CDN = ['cdnjs.cloudflare.com','cdn.jsdelivr.net','unpkg.com','esm.sh'].map(d => 'https://' + d).join(' ');
+  const csp = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; style-src 'unsafe-inline'; img-src * data: blob:; media-src * data: blob:; font-src * data:; connect-src 'none'`;
+  const srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{background:#18181b;color:#e4e4e7;font-family:sans-serif;font-size:14px;line-height:1.6;padding:12px;overflow-x:hidden}table{border-collapse:collapse;width:100%}th,td{border:1px solid #3f3f46;padding:6px 8px}th{background:#27272a;font-weight:600}pre{background:#27272a;padding:10px;border-radius:6px;overflow-x:auto}a{color:#60a5fa}img,svg{max-width:100%;height:auto}</style></head><body><div id="__root"></div><script>(function(){var root=document.getElementById('__root');var _t=null;function _h(){if(_t)clearTimeout(_t);_t=setTimeout(function(){var h=document.body.scrollHeight;if(h>0)parent.postMessage({type:'widget:resize',height:h},'*');},60);}var _ro=new ResizeObserver(_h);_ro.observe(document.body);function finalizeHtml(html){var tmp=document.createElement('div');tmp.innerHTML=html;var ss=tmp.querySelectorAll('script');var scripts=[];for(var i=0;i<ss.length;i++){scripts.push({src:ss[i].src||'',text:ss[i].textContent||'',attrs:[]});for(var j=0;j<ss[i].attributes.length;j++){var a=ss[i].attributes[j];if(a.name!=='src')scripts[scripts.length-1].attrs.push({name:a.name,value:a.value});}ss[i].remove();}root.innerHTML=tmp.innerHTML;for(var i=0;i<scripts.length;i++){var n=document.createElement('script');if(scripts[i].src)n.src=scripts[i].src;else if(scripts[i].text)n.textContent=scripts[i].text;for(var j=0;j<scripts[i].attrs.length;j++)n.setAttribute(scripts[i].attrs[j].name,scripts[i].attrs[j].value);root.appendChild(n);}_h();}window.addEventListener('message',function(e){if(!e.data)return;if(e.data.type==='widget:finalize'){finalizeHtml(e.data.html);setTimeout(_h,150);}});parent.postMessage({type:'widget:ready'},'*');})();<\/script></body></html>`;
+
+  const handleMsg = useCallback((e) => {
+    if (!e.data || typeof e.data !== 'object') return;
+    if (e.data.type === 'widget:resize' && typeof e.data.height === 'number') setHeight(Math.min(e.data.height + 4, 800));
+    if (e.data.type === 'widget:ready') ref.current?.contentWindow?.postMessage({ type: 'widget:finalize', html: code }, '*');
+  }, [code]);
+
+  useEffect(() => {
+    window.addEventListener('message', handleMsg);
+    return () => window.removeEventListener('message', handleMsg);
+  }, [handleMsg]);
+
+  return h('div', { className: 'widget-wrap' },
+    title && h('div', { className: 'widget-title' }, title),
+    h('iframe', { ref, srcDoc: srcdoc, sandbox: 'allow-scripts allow-popups', className: 'widget-iframe', style: { height: height + 'px' }, title: title || 'Widget' })
+  );
+}
+
+// ── Widget-aware content ──
+function WidgetAwareContent({ content }) {
+  const segs = parseWidgets(content);
+  if (!segs) return h(ChatMarkdown, { content });
+  return h(React.Fragment, null, ...segs.map((s, i) =>
+    s.type === 'text' ? h(ChatMarkdown, { key: 't' + i, content: s.content }) : h(WidgetRenderer, { key: 'w' + i, code: s.content, title: s.title })
+  ));
+}
+
+// ── Tool call card ──
+function ToolCallCard({ event }) {
+  const [argsOpen, setArgsOpen] = useState(false);
+  const [resultOpen, setResultOpen] = useState(false);
+  const fail = event.success === false;
+  const arrow = (open) => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 },
+    h('path', { d: open ? 'M6 9l6 6 6-6' : 'M9 18l6-6-6-6' })
+  );
+  return h('div', { className: 'tool-card ' + (fail ? 'fail' : 'ok') },
+    h('div', { className: 'tool-header' },
+      h('span', { className: 'tool-icon' }, fail ? '✗' : '⚡'),
+      h('span', { className: 'tool-name' }, event.tool_name || 'unknown'),
+      h('span', { className: 'tool-meta' }, (fail ? 'failed' : 'ok') + (event.elapsed_ms != null ? ' · ' + event.elapsed_ms + 'ms' : ''))
+    ),
+    event.tool_args != null && h('div', null,
+      h('button', { className: 'tool-toggle', onClick: () => setArgsOpen(!argsOpen) }, arrow(argsOpen), ' Arguments'),
+      argsOpen && h('pre', { className: 'tool-pre' }, typeof event.tool_args === 'string' ? event.tool_args : JSON.stringify(event.tool_args, null, 2))
+    ),
+    event.result && h('div', null,
+      h('button', { className: 'tool-toggle', onClick: () => setResultOpen(!resultOpen) }, arrow(resultOpen), ' Result'),
+      resultOpen && h('pre', { className: 'tool-pre' }, event.result)
+    )
+  );
+}
+
+// ── Trace message (fetches full trace data) ──
+function TraceMessage({ trace, auth }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    fetch('/api/public/traces/' + encodeURIComponent(trace.id), { headers: { Authorization: auth } })
+      .then(r => r.ok ? r.json() : null).then(setData).catch(() => {});
+  }, [trace.id, auth]);
+
+  if (!data) return h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0', color: '#71717a', fontSize: 13 } },
+    h('div', { className: 'spinner', style: { width: 16, height: 16 } }), 'Loading trace…'
+  );
+
+  const ts = new Date(trace.timestamp);
+  const timeStr = ts.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const input = extractInput(data.input);
+  const events = extractEvents(data.output);
+  const fallback = !events ? extractFallback(data.output) : '';
+
+  return h(React.Fragment, null,
+    input && h('div', { className: 'turn' },
+      h('div', { className: 'role-label right' }, 'User'),
+      h('div', { className: 'bubble-user' }, input),
+      h('div', { className: 'timestamp right' }, timeStr)
+    ),
+    events && events.length > 0 && h('div', { className: 'turn' },
+      h('div', { className: 'role-label' }, 'Assistant'),
+      ...events.map((evt, i) =>
+        evt.type === 'content' && evt.content
+          ? h('div', { key: 'e' + i, className: 'bubble-asst' }, h(WidgetAwareContent, { content: evt.content }))
+          : evt.type === 'tool_call'
+            ? h(ToolCallCard, { key: 'e' + i, event: evt })
+            : null
+      ),
+      h('div', { className: 'timestamp' }, timeStr)
+    ),
+    !events && fallback && h('div', { className: 'turn' },
+      h('div', { className: 'role-label' }, 'Assistant'),
+      h('div', { className: 'bubble-asst' }, h(WidgetAwareContent, { content: fallback })),
+      h('div', { className: 'timestamp' }, timeStr)
+    )
+  );
+}
+
+// ── Auth screen ──
+function AuthScreen({ onAuth }) {
+  const [pk, setPk] = useState('');
+  const [sk, setSk] = useState('');
+  const [err, setErr] = useState('');
+  const submit = async () => {
+    if (!pk.trim() || !sk.trim()) { setErr('Please fill in both keys'); return; }
+    const auth = 'Basic ' + btoa(pk.trim() + ':' + sk.trim());
+    try {
+      const r = await fetch('/api/public/sessions/' + encodeURIComponent(P_SESSION), { headers: { Authorization: auth } });
+      if (r.status === 401 || r.status === 403) { setErr('Authentication failed, check your keys'); return; }
+      saveKeys(pk.trim(), sk.trim());
+      onAuth(auth);
+    } catch (e) { setErr('Connection error: ' + e.message); }
+  };
+  return h('div', { className: 'center' },
+    h('div', { className: 'auth-box' },
+      h('h2', null, 'API Key Required'),
+      h('p', null, 'Enter your Langfuse project API keys to view this chat session.'),
+      h('label', null, 'Public Key'),
+      h('input', { value: pk, onChange: e => setPk(e.target.value), placeholder: 'pk-lf-...' }),
+      h('label', null, 'Secret Key'),
+      h('input', { type: 'password', value: sk, onChange: e => setSk(e.target.value), placeholder: 'sk-lf-...' }),
+      h('button', { onClick: submit }, 'Connect'),
+      err && h('div', { className: 'error' }, err)
+    )
+  );
+}
+
+// ── Main App ──
+function App() {
+  const chatRef = useRef(null);
+  const [auth, setAuth] = useState(null);
+  const [traces, setTraces] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Try saved keys on mount
+  useEffect(() => {
+    const saved = loadKeys();
+    if (saved) setAuth('Basic ' + btoa(saved.pk + ':' + saved.sk));
+  }, []);
+
+  // Fetch session traces once authed
+  useEffect(() => {
+    if (!auth || !P_SESSION) return;
+    setLoading(true);
+    fetch('/api/public/sessions/' + encodeURIComponent(P_SESSION), { headers: { Authorization: auth } })
+      .then(r => {
+        if (r.status === 401 || r.status === 403) { localStorage.removeItem(STORAGE_KEY); setAuth(null); throw new Error('auth'); }
+        return r.json();
+      })
+      .then(session => {
+        const ids = (session.traces || []).map(t => ({ id: t.id, timestamp: t.timestamp }));
+        ids.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        setTraces(ids);
+        setLoading(false);
+      })
+      .catch(e => { if (e.message !== 'auth') setError(e.message); setLoading(false); });
+  }, [auth]);
+
+  // Scroll to bottom when traces load
+  useEffect(() => {
+    if (traces && chatRef.current) setTimeout(() => { chatRef.current.scrollTop = chatRef.current.scrollHeight; }, 600);
+  }, [traces]);
+
+  if (!P_SESSION || !P_PROJECT) {
+    return h('div', { className: 'center', style: { color: '#71717a' } }, 'Missing sessionId or projectId in URL parameters.');
+  }
+
+  if (!auth) return h(AuthScreen, { onAuth: setAuth });
+
+  if (loading) return h('div', { className: 'center' }, h('div', { className: 'spinner' }));
+
+  if (error) return h('div', { className: 'center', style: { color: '#ef4444' } }, 'Error: ' + error);
+
+  if (!traces) return h('div', { className: 'center' }, h('div', { className: 'spinner' }));
+
+  const meta = ['Session: ' + P_SESSION.slice(0, 12) + '…', traces.length + ' turns'].join(' · ');
+  let lastDate = '';
+
+  return h('div', { className: 'app' },
+    h('header', { className: 'header' },
+      h('div', null,
+        h('h1', null, 'Chat Preview'),
+        h('div', { className: 'meta' }, meta)
+      ),
+      h('button', { className: 'close-btn', onClick: () => window.close() }, '✕ Close')
+    ),
+    h('div', { className: 'chat', ref: chatRef },
+      ...traces.map(trace => {
+        const ts = new Date(trace.timestamp);
+        const dateStr = ts.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+        const showDate = dateStr !== lastDate;
+        if (showDate) lastDate = dateStr;
+        return h(React.Fragment, { key: trace.id },
+          showDate && h('div', { className: 'divider' }, dateStr),
+          h(TraceMessage, { trace, auth })
+        );
+      })
+    )
+  );
+}
+
+createRoot(document.getElementById('root')).render(h(App));
+</script>
+</body>
+</html>
