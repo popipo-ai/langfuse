@@ -88,7 +88,7 @@ var SESSION_ID = params.get('sessionId');
 var PROJECT_ID = params.get('projectId');
 
 // ── API Key storage ──
-var SKEY = 'lf-chat-preview-keys';
+var SKEY = 'lf-chat-preview-keys-'+PROJECT_ID;
 function loadKeys(){ try{return JSON.parse(localStorage.getItem(SKEY))||null}catch(e){return null} }
 function saveKeys(pk,sk){ localStorage.setItem(SKEY,JSON.stringify({pk:pk,sk:sk})) }
 function makeAuth(pk,sk){ return 'Basic '+btoa(pk+':'+sk) }
@@ -322,6 +322,7 @@ function showAuth(errMsg){
     fetch('/api/public/sessions/'+encodeURIComponent(SESSION_ID),{headers:{Authorization:auth}})
       .then(function(r){
         if(r.status===401||r.status===403){ showAuth('Authentication failed'); return }
+        if(r.status===404){ showAuth('Session not found — key may belong to a different project'); return }
         saveKeys(pk,sk);
         startApp(auth);
       }).catch(function(e){ showAuth('Error: '+e.message) });
@@ -335,6 +336,7 @@ function startApp(auth){
   fetch('/api/public/sessions/'+encodeURIComponent(SESSION_ID),{headers:{Authorization:auth}})
     .then(function(r){
       if(r.status===401||r.status===403){localStorage.removeItem(SKEY);showAuth('Session expired');throw new Error('auth')}
+      if(r.status===404){localStorage.removeItem(SKEY);showAuth('Session not found — API key may belong to a different project');throw new Error('auth')}
       return r.json();
     })
     .then(function(session){
