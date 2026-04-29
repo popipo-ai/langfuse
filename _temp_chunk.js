@@ -245,7 +245,8 @@
 
   function getApiKeys() {
     var saved = null;
-    try { saved = JSON.parse(localStorage.getItem('lf-chat-preview-keys') || 'null'); } catch(e) {}
+    var pid = getProjectId() || '';
+    try { saved = JSON.parse(localStorage.getItem('lf-chat-preview-keys-' + pid) || 'null'); } catch(e) {}
     if (saved && saved.pk && saved.sk) return saved;
 
     var pk = prompt('Enter Langfuse Public Key (pk-lf-...):\n(Saved for future use)');
@@ -253,7 +254,7 @@
     var sk = prompt('Enter Langfuse Secret Key (sk-lf-...):');
     if (!sk) return null;
     var keys = { pk: pk.trim(), sk: sk.trim() };
-    localStorage.setItem('lf-chat-preview-keys', JSON.stringify(keys));
+    localStorage.setItem('lf-chat-preview-keys-' + pid, JSON.stringify(keys));
     return keys;
   }
 
@@ -261,7 +262,7 @@
     var sessionId = getSessionId();
     var projectId = getProjectId();
     if (!sessionId || !projectId) { alert('Cannot detect session/project ID'); return; }
-    window.open('/project/' + projectId + '/sessions/' + encodeURIComponent(sessionId) + '/chat-preview', '_blank');
+    window.open('/chat-preview.html?projectId=' + encodeURIComponent(projectId) + '&sessionId=' + encodeURIComponent(sessionId), '_blank');
   }
 
   var SVG_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/></svg>';
