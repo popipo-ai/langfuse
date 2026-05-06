@@ -329,8 +329,30 @@ function showAuth(errMsg){
   };
 }
 
+var _collectedTraces = [];
+var _sessionData = null;
+
+function downloadSessionJson(){
+  if(!_sessionData) return;
+  var exportData = {
+    session: _sessionData,
+    traces: _collectedTraces.filter(Boolean).sort(function(a,b){ return new Date(a.timestamp)-new Date(b.timestamp) })
+  };
+  var blob = new Blob([JSON.stringify(exportData,null,2)],{type:'application/json;charset=utf-8'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'session-'+SESSION_ID+'.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function startApp(auth){
   console.log('[chat-preview] startApp called');
+  _collectedTraces = [];
+  _sessionData = null;
   app.innerHTML = '<div class="center"><div class="spinner"></div><div style="color:var(--muted);font-size:12px;margin-top:8px">Loading session…</div></div>';
 
   fetch('/api/public/sessions/'+encodeURIComponent(SESSION_ID),{headers:{Authorization:auth}})
@@ -341,15 +363,20 @@ function startApp(auth){
     })
     .then(function(session){
       console.log('[chat-preview] session loaded:', session);
+      _sessionData = session;
       var traceIds = (session.traces||[]).map(function(t){return{id:t.id,timestamp:t.timestamp}});
       traceIds.sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp)});
+      _collectedTraces = new Array(traceIds.length);
 
       var meta = 'Session: '+SESSION_ID.slice(0,12)+'… · '+traceIds.length+' turns';
       var chatHtml = '';
       var lastDate = '';
 
       app.innerHTML = '<header class="header"><div><h1>Chat Preview</h1><div class="meta">'+esc(meta)+'</div></div>'
-        +'<button class="close-btn" onclick="window.close()">✕ Close</button></header>'
+        +'<div style="display:flex;gap:8px;align-items:center">'
+        +'<button class="close-btn" id="dl-btn" onclick="downloadSessionJson()" style="opacity:.4;pointer-events:none" title="Download full JSON">↓ JSON</button>'
+        +'<button class="close-btn" onclick="window.close()">✕ Close</button>'
+        +'</div></header>'
         +'<div class="chat" id="chat"></div>';
       var chatEl = document.getElementById('chat');
 
@@ -402,12 +429,15 @@ function startApp(auth){
             }
 
             el.innerHTML = html;
+            _collectedTraces[idx] = data;
 
             loaded++;
             if(loaded===traceIds.length){
               setTimeout(function(){ chatEl.scrollTop=chatEl.scrollHeight },300);
+              var dlBtn = document.getElementById('dl-btn');
+              if(dlBtn){ dlBtn.style.opacity='1'; dlBtn.style.pointerEvents='auto'; }
             }
-          }).catch(function(){ var el=document.getElementById('trace-'+idx); if(el)el.innerHTML='' });
+          }).catch(function(){ var el=document.getElementById('trace-'+idx); if(el)el.innerHTML=''; loaded++; if(loaded===traceIds.length){ var dlBtn=document.getElementById('dl-btn'); if(dlBtn){dlBtn.style.opacity='1';dlBtn.style.pointerEvents='auto'} } });
       });
     }).catch(function(e){ console.error('[chat-preview] error:', e); if(e.message!=='auth') app.innerHTML='<div class="center" style="color:#ef4444">Error: '+esc(e.message)+'</div>' });
 }
