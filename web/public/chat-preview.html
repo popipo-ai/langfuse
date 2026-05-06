@@ -334,10 +334,74 @@ var _sessionData = null;
 
 window.downloadSessionJson = function(){
   if(!_sessionData) return;
+  var traces = _collectedTraces.filter(Boolean).sort(function(a,b){ return new Date(a.timestamp)-new Date(b.timestamp) });
+
+  var turns = traces.map(function(t){
+    var userMsg = extractInput(t.input);
+    var events = extractEvents(t.output);
+
+    var len = userMsg.length;
+    var inputLength = len<50?'short':(len<300?'medium':'long');
+    var hasMarkdown = /\[资产\d*\]\s*type=markdown|\.md\b|\.ppml\b/.test(userMsg);
+
+    var toolCalls = [];
+    if(events) events.forEach(function(evt){ if(evt.type==='tool_call'&&evt.tool_name) toolCalls.push(evt.tool_name) });
+
+    var model = (t.metadata&&t.metadata.model)||'';
+    if(!model&&t.observations){
+      for(var i=0;i<t.observations.length;i++){
+        if(t.observations[i].type==='GENERATION'&&t.observations[i].model){ model=t.observations[i].model; break }
+      }
+    }
+
+    var asstParts = [];
+    if(events) events.forEach(function(evt){ if(evt.type==='content'&&evt.content) asstParts.push(evt.content) });
+    var asstText = asstParts.join('\n')||extractFallback(t.output)||'';
+
+    return {
+      timestamp: t.timestamp,
+      interaction_mode: (t.metadata&&t.metadata.interaction_mode)||'unknown',
+      user_message: userMsg,
+      input_length: inputLength,
+      has_markdown_asset: hasMarkdown,
+      tool_calls: toolCalls,
+      tool_count: toolCalls.length,
+      model: model,
+      assistant_response: asstText
+    };
+  });
+
+  var modeDist={}, toolFreq={}, turnsWithTools=0, lenBuckets={short:0,medium:0,long:0};
+  turns.forEach(function(turn){
+    modeDist[turn.interaction_mode]=(modeDist[turn.interaction_mode]||0)+1;
+    if(turn.tool_count>0) turnsWithTools++;
+    turn.tool_calls.forEach(function(n){ toolFreq[n]=(toolFreq[n]||0)+1 });
+    if(lenBuckets[turn.input_length]!==undefined) lenBuckets[turn.input_length]++;
+  });
+  var topTools = Object.keys(toolFreq).sort(function(a,b){return toolFreq[b]-toolFreq[a]}).slice(0,5);
+  var avgLen='short';
+  if(lenBuckets.long>=lenBuckets.short&&lenBuckets.long>=lenBuckets.medium) avgLen='long';
+  else if(lenBuckets.medium>=lenBuckets.short) avgLen='medium';
+
+  var userId = traces.length>0?(traces[0].userId||''):'';
+
   var exportData = {
-    session: _sessionData,
-    traces: _collectedTraces.filter(Boolean).sort(function(a,b){ return new Date(a.timestamp)-new Date(b.timestamp) })
+    session_id: SESSION_ID,
+    user_id: userId,
+    time_range: {
+      first: turns.length>0?turns[0].timestamp:null,
+      last: turns.length>0?turns[turns.length-1].timestamp:null
+    },
+    total_turns: turns.length,
+    summary: {
+      mode_distribution: modeDist,
+      tool_usage_rate: turns.length>0?Math.round(turnsWithTools/turns.length*100)/100:0,
+      avg_input_length: avgLen,
+      top_tools: topTools
+    },
+    turns: turns
   };
+
   var blob = new Blob([JSON.stringify(exportData,null,2)],{type:'application/json;charset=utf-8'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
@@ -347,6 +411,25 @@ window.downloadSessionJson = function(){
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function fetchAllTraces(auth, sessionId){
+  var all = [];
+  var PAGE_SIZE = 100;
+  function fetchPage(page){
+    return fetch('/api/public/traces?sessionId='+encodeURIComponent(sessionId)+'&limit='+PAGE_SIZE+'&page='+page,{headers:{Authorization:auth}})
+      .then(function(r){ return r.ok?r.json():null })
+      .then(function(body){
+        if(!body||!body.data) return all;
+        all = all.concat(body.data);
+        var meta = body.meta||{};
+        var totalPages = meta.totalPages||1;
+        console.log('[chat-preview] traces page '+page+'/'+totalPages+' fetched, got '+body.data.length);
+        if(page<totalPages) return fetchPage(page+1);
+        return all;
+      });
+  }
+  return fetchPage(1);
 }
 
 function startApp(auth){
@@ -364,13 +447,18 @@ function startApp(auth){
     .then(function(session){
       console.log('[chat-preview] session loaded:', session);
       _sessionData = session;
-      var traceIds = (session.traces||[]).map(function(t){return{id:t.id,timestamp:t.timestamp}});
+      return fetchAllTraces(auth, SESSION_ID);
+    })
+    .then(function(allTraces){
+      var seen = {};
+      var traceIds = [];
+      allTraces.forEach(function(t){
+        if(!seen[t.id]){ seen[t.id]=true; traceIds.push({id:t.id,timestamp:t.timestamp}) }
+      });
       traceIds.sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp)});
       _collectedTraces = new Array(traceIds.length);
 
       var meta = 'Session: '+SESSION_ID.slice(0,12)+'… · '+traceIds.length+' turns';
-      var chatHtml = '';
-      var lastDate = '';
 
       app.innerHTML = '<header class="header"><div><h1>Chat Preview</h1><div class="meta">'+esc(meta)+'</div></div>'
         +'<div style="display:flex;gap:8px;align-items:center">'
@@ -380,8 +468,8 @@ function startApp(auth){
         +'<div class="chat" id="chat"></div>';
       var chatEl = document.getElementById('chat');
 
-      // Load traces one by one
       var loaded = 0;
+      var lastDate = '';
       traceIds.forEach(function(trace,idx){
         var placeholder = document.createElement('div');
         placeholder.id = 'trace-'+idx;
@@ -439,6 +527,7 @@ function startApp(auth){
             }
           }).catch(function(){ var el=document.getElementById('trace-'+idx); if(el)el.innerHTML=''; loaded++; if(loaded===traceIds.length){ var dlBtn=document.getElementById('dl-btn'); if(dlBtn){dlBtn.style.opacity='1';dlBtn.style.pointerEvents='auto'} } });
       });
+
     }).catch(function(e){ console.error('[chat-preview] error:', e); if(e.message!=='auth') app.innerHTML='<div class="center" style="color:#ef4444">Error: '+esc(e.message)+'</div>' });
 }
 
