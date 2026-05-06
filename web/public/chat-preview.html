@@ -332,7 +332,7 @@ function showAuth(errMsg){
 var _collectedTraces = [];
 var _sessionData = null;
 
-function downloadSessionJson(){
+window.downloadSessionJson = function(){
   if(!_sessionData) return;
   var exportData = {
     session: _sessionData,
