@@ -252,17 +252,29 @@ function renderContent(text){
   }).join('');
 }
 
+// Popipo uses tool_args; OpenAI-style payloads may use arguments/args/params/input.
+function extractToolArgs(evt){
+  if(evt.tool_args!=null) return evt.tool_args;
+  if(evt.arguments!=null) return evt.arguments;
+  if(evt.args!=null) return evt.args;
+  if(evt.params!=null) return evt.params;
+  if(evt.input!=null) return evt.input;
+  if(evt.function&&evt.function.arguments!=null) return evt.function.arguments;
+  return null;
+}
+
 // ── Render tool card ──
 function renderToolCard(evt){
   var fail = evt.success === false;
   var cls = fail ? 'tool-card tool-fail' : 'tool-card tool-ok';
   var elapsed = evt.elapsed_ms != null ? ' · '+evt.elapsed_ms+'ms' : '';
+  var toolArgs = extractToolArgs(evt);
   var html = '<div class="'+cls+'">';
   html += '<div class="tool-header"><span class="tool-icon">'+(fail?'✗':'⚡')+'</span>';
   html += '<span class="tool-name">'+esc(evt.tool_name||'unknown')+'</span>';
   html += '<span class="tool-meta">'+(fail?'failed':'ok')+elapsed+'</span></div>';
-  if(evt.tool_args!=null){
-    var argsStr = typeof evt.tool_args==='string' ? esc(evt.tool_args) : esc(JSON.stringify(evt.tool_args,null,2));
+  if(toolArgs!=null){
+    var argsStr = typeof toolArgs==='string' ? esc(toolArgs) : esc(JSON.stringify(toolArgs,null,2));
     html += '<details><summary class="tool-toggle">▸ Arguments</summary><pre class="tool-pre">'+argsStr+'</pre></details>';
   }
   if(evt.result){

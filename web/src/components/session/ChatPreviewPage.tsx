@@ -8,9 +8,26 @@ interface OutputEvent {
   content?: string;
   tool_name?: string;
   tool_args?: unknown;
+  /** Alternate keys used by some instrumentations */
+  arguments?: unknown;
+  args?: unknown;
+  params?: unknown;
+  input?: unknown;
+  function?: { arguments?: unknown };
   result?: string;
   success?: boolean;
   elapsed_ms?: number;
+}
+
+/** Popipo trace output uses tool_args; OpenAI-style payloads may use arguments/args. */
+function extractToolArgs(event: OutputEvent): unknown {
+  if (event.tool_args != null) return event.tool_args;
+  if (event.arguments != null) return event.arguments;
+  if (event.args != null) return event.args;
+  if (event.params != null) return event.params;
+  if (event.input != null) return event.input;
+  if (event.function?.arguments != null) return event.function.arguments;
+  return undefined;
 }
 
 function parseIfString(val: unknown): unknown {
@@ -113,7 +130,7 @@ function ToolCallCard({ event }: { event: OutputEvent }) {
         </span>
       </div>
 
-      {event.tool_args != null && (
+      {extractToolArgs(event) != null && (
         <div className="mt-1.5">
           <button
             className="flex items-center gap-1 text-[12px] text-zinc-500 hover:text-zinc-300 cursor-pointer select-none"
@@ -128,7 +145,7 @@ function ToolCallCard({ event }: { event: OutputEvent }) {
           </button>
           {argsOpen && (
             <pre className="mt-1 rounded-md bg-black/30 p-2 text-[12px] leading-relaxed text-zinc-500 overflow-x-auto max-h-[300px] overflow-y-auto whitespace-pre-wrap break-all">
-              {formatToolArgs(event.tool_args)}
+              {formatToolArgs(extractToolArgs(event))}
             </pre>
           )}
         </div>

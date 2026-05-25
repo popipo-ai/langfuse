@@ -25,7 +25,8 @@ ARG TARGETARCH
 ENV CGO_ENABLED=0 \
     GOBIN=/out \
     GOOS=${TARGETOS} \
-    GOARCH=${TARGETARCH}
+    GOARCH=${TARGETARCH} \
+    GOPROXY=https://goproxy.cn,direct
 # Build only the ClickHouse migrate CLI Langfuse uses at runtime.
 # compile this ourselves instead of downloading the upstream release
 # because prebuilt bins bundle many unused drivers and thus inherit CVEs
@@ -34,6 +35,7 @@ RUN /usr/local/go/bin/go install -trimpath -tags 'clickhouse' -ldflags='-s -w' \
     github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
 
 FROM --platform=${TARGETPLATFORM:-linux/amd64} build-base AS pruner
+ENV npm_config_registry=https://registry.npmmirror.com
 
 WORKDIR /app
 
@@ -105,7 +107,7 @@ ENV NEXT_MANUAL_SIG_HANDLE true
 # set the CI flag to true to get CI specific logs
 ENV CI true
 
-RUN NODE_OPTIONS='--max-old-space-size-percentage=75' turbo run build --filter=web...
+RUN NODE_OPTIONS='--max-old-space-size=4096' turbo run build --filter=web...
 
 # Production image, copy all the files and run next
 FROM --platform=${TARGETPLATFORM:-linux/amd64} runtime-base AS runner

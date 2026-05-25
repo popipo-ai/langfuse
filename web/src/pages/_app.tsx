@@ -144,7 +144,7 @@ const MyApp: AppType<{ session: Session | null }> = ({
                 <MarkdownContextProvider>
                   <ThemeProvider
                     attribute="class"
-                    enableSystem
+                    defaultTheme="dark"
                     disableTransitionOnChange
                   >
                     <ScoreCacheProvider>
