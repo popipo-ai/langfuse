@@ -1,0 +1,26 @@
+﻿<clickhouse>
+  <query_log>
+    <database>system</database>
+    <table>query_log</table>
+    <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+    <ttl>event_date + INTERVAL 3 DAY</ttl>
+  </query_log>
+  <trace_log>
+    <database>system</database>
+    <table>trace_log</table>
+    <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+    <ttl>event_date + INTERVAL 3 DAY</ttl>
+  </trace_log>
+  <text_log>
+    <database>system</database>
+    <table>text_log</table>
+    <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+    <ttl>event_date + INTERVAL 3 DAY</ttl>
+  </text_log>
+  <metric_log>
+    <ttl>event_date + INTERVAL 3 DAY</ttl>
+  </metric_log>
+  <part_log>
+    <ttl>event_date + INTERVAL 3 DAY</ttl>
+  </part_log>
+</clickhouse>
