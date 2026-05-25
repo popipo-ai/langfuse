@@ -87,7 +87,7 @@ export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
 docker compose up -d --force-recreate clickhouse
 ```
 
-`./clickhouse-config/system_log_ttl.xml` 为 `system.*` 日志表设置 **3 天 TTL**，限制磁盘增长（主因是 system 日志，不是业务 `traces` 表）。
+`./clickhouse-config/system_log_ttl.xml` 为 `system.*` 日志表设置 **3 天 TTL**，并声明 `<listen_host>0.0.0.0</listen_host>`（挂载 `config.d` 覆盖默认配置时必须，见 §8.1）。主因是 system 日志撑盘，不是业务 `traces` 表。
 
 ### 4.2 一次性清空 system 日志表（应急腾盘）
 
@@ -187,7 +187,7 @@ docker compose up -d langfuse-web
 |------|------|
 | `docker-compose.yml` | Fork 默认；本地 build + 3000 |
 | `docker-compose.prod.yml` | 生产叠加 |
-| `clickhouse-config/system_log_ttl.xml` | system 表 3 天 TTL |
+| `clickhouse-config/system_log_ttl.xml` | system 表 3 天 TTL + `listen_host` |
 | `chat-preview-inject.js` | HEAD 注入脚本源码 |
 | `web/public/chat-preview.html` | 静态 Chat Preview |
 | `fork-specs/0001-chat-preview-cross-project-auth-fix.md` | 跨项目鉴权说明 |
@@ -198,16 +198,44 @@ docker compose up -d langfuse-web
 
 ### 8.1 ClickHouse：web 连 9000 被拒（Connection refused）
 
-Compose 将 `./clickhouse-config` 挂载到 `/etc/clickhouse-server/config.d/` 时，会**覆盖**官方镜像自带的默认配置片段（含 `docker_related_config.xml`）。若自定义 overlay 未声明 `<listen_host>`，ClickHouse 仅监听 `127.0.0.1`，同 Docker 网络内的 `langfuse-web` 访问 `clickhouse:9000` 会被拒绝。
+**根因**：Compose 将 `./clickhouse-config` 挂载到 `/etc/clickhouse-server/config.d/` 时，会**覆盖/替换**官方镜像在 `config.d` 中自动生成的 `docker_related_config.xml`。该默认片段含 `<listen_host>::</listen_host>`，使 ClickHouse 监听所有网卡。挂载后目录内只剩自定义文件（如 `system_log_ttl.xml`）；若未再声明 `<listen_host>`，ClickHouse 回退为仅监听 `127.0.0.1`。
+
+**症状**：
+
+- 容器内 `clickhouse-client` 正常（走 localhost）
+- `langfuse-web` 从 Docker 网络连 `clickhouse:9000`（如 `172.18.0.x:9000`）报 `Connection refused`
+- web 在 ClickHouse migration 阶段 crash loop
+
+**诊断**：
+
+```bash
+# 容器内 localhost 可连
+docker exec -it langfuse-clickhouse-1 clickhouse-client --query "SELECT 1"
+
+# 从 web 容器测 Docker 网络（需容器内有 nc；或直接看 web 日志）
+docker exec -it langfuse-langfuse-web-1 bash -c "nc -zv clickhouse 9000" 2>&1 || true
+docker compose logs langfuse-web --tail 50
+```
 
 **修复**：在 `clickhouse-config/system_log_ttl.xml`（或任意挂载进 `config.d` 的文件）的 `</clickhouse>` 前加入：
 
 ```xml
-<listen_host>::</listen_host>
+<listen_host>0.0.0.0</listen_host>
 ```
+
+> **注意**：须用 `0.0.0.0`，**不要用 `::`**。阿里云 ECS 无 IPv6 时，`::` 会导致 ClickHouse 反复重启、healthcheck unhealthy（2026-05 生产故障）。
 
 变更后重建 ClickHouse：
 
 ```bash
+cd /opt/langfuse
+export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
 docker compose up -d --force-recreate clickhouse
+```
+
+确认 web 恢复：
+
+```bash
+docker compose ps
+docker compose logs langfuse-web --tail 20
 ```

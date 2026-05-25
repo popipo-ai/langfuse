@@ -23,5 +23,6 @@
   <part_log>
     <ttl>event_date + INTERVAL 3 DAY</ttl>
   </part_log>
+  <!-- config.d 挂载会覆盖镜像默认 docker_related_config.xml，须显式 bind；ECS 无 IPv6 用 0.0.0.0 勿用 :: -->
   <listen_host>0.0.0.0</listen_host>
 </clickhouse>
