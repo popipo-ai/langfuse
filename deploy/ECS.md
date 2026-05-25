@@ -191,3 +191,23 @@ docker compose up -d langfuse-web
 | `chat-preview-inject.js` | HEAD 注入脚本源码 |
 | `web/public/chat-preview.html` | 静态 Chat Preview |
 | `fork-specs/0001-chat-preview-cross-project-auth-fix.md` | 跨项目鉴权说明 |
+
+---
+
+## 8. Troubleshooting
+
+### 8.1 ClickHouse：web 连 9000 被拒（Connection refused）
+
+Compose 将 `./clickhouse-config` 挂载到 `/etc/clickhouse-server/config.d/` 时，会**覆盖**官方镜像自带的默认配置片段（含 `docker_related_config.xml`）。若自定义 overlay 未声明 `<listen_host>`，ClickHouse 仅监听 `127.0.0.1`，同 Docker 网络内的 `langfuse-web` 访问 `clickhouse:9000` 会被拒绝。
+
+**修复**：在 `clickhouse-config/system_log_ttl.xml`（或任意挂载进 `config.d` 的文件）的 `</clickhouse>` 前加入：
+
+```xml
+<listen_host>::</listen_host>
+```
+
+变更后重建 ClickHouse：
+
+```bash
+docker compose up -d --force-recreate clickhouse
+```

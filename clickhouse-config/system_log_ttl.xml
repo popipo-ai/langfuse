@@ -23,4 +23,5 @@
   <part_log>
     <ttl>event_date + INTERVAL 3 DAY</ttl>
   </part_log>
+  <listen_host>::</listen_host>
 </clickhouse>
