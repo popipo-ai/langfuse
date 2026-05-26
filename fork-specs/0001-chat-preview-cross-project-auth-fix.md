@@ -110,11 +110,38 @@ docker cp /tmp/chat-preview.html langfuse-langfuse-web-1:/app/web/public/chat-pr
 # 4. 验证：打开 prod 项目 Session → Chat Preview，应直接在新标签页显示对话
 ```
 
+### 修复四：静态页遵守 Next.js CSP（`web/public/chat-preview.html` v3）
+
+Langfuse 在 `web/next.config.mjs` 为全站设置 CSP：`script-src` / `font-src` 仅允许 `'self'`（无 jsDelivr、无 Google Fonts）。
+
+旧版静态页在 `<head>` 中加载：
+
+- `https://cdn.jsdelivr.net/npm/marked/marked.min.js` → 被 CSP 拦截，`marked` 未定义，后续渲染脚本报错，**会话数据无法展示**
+- `https://fonts.googleapis.com/...` → 被 `font-src 'self'` 拦截
+
+**v3 做法（不放宽 CSP）：**
+
+- Markdown 使用页面内联 `renderMd()`，不依赖 marked
+- 字体使用系统栈（`-apple-system`, `Segoe UI` 等），不请求外部字体
+- 数据拉取（`/api/public/sessions`、`/api/public/traces`）在同页内联脚本中，与外部 CDN 无关
+
+**部署后验证：**
+
+```bash
+curl -sS http://127.0.0.1:3001/chat-preview.html | grep -E 'v3-csp-self|jsdelivr|googleapis|marked.min'
+# 应看到 v3-csp-self，且不应出现 jsdelivr / googleapis / marked.min
+```
+
+浏览器控制台应出现：`[chat-preview] v3-csp-self init`。
+
+Widget iframe 的 `srcdoc` 内嵌 CSP 仅作用于沙箱 iframe，不影响主文档；勿将仓库根目录的旧 `chat-preview.html`（含 CDN）复制到容器。
+
 ## 已知限制
 
 - `_temp_chunk.js` 是对编译产物的手动 patch，下次重建镜像后需重新应用或确认源码已包含此修复
 - `chat-preview.html` 的 localStorage 修复仍保留，作为直接访问静态页面时的降级方案
 - 容器重建后两个文件均需重新 `docker cp`（非持久化）
+- GHCR 镜像若未重建，生产可能仍为旧静态页，需按 §部署步骤热更新 `web/public/chat-preview.html`
 
 ## 后续优化
 

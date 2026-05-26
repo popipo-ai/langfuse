@@ -105,13 +105,19 @@ TRUNCATE TABLE system.part_log;
 
 ### 4.3 热更新静态 `chat-preview.html`（无需重建镜像）
 
+源文件路径：**`web/public/chat-preview.html`**（Next 以 `/chat-preview.html` 提供）。勿使用仓库根目录旧版（含 jsDelivr `marked` / Google Fonts，会被 `web/next.config.mjs` CSP 拦截导致页面空白）。
+
 ```bash
 curl -sL "https://raw.githubusercontent.com/popipo-ai/langfuse/feat/dark-mode-reskin/web/public/chat-preview.html" \
   -o /tmp/chat-preview.html
 docker cp /tmp/chat-preview.html langfuse-langfuse-web-1:/app/web/public/chat-preview.html
+
+# 验证已部署 v3（无外部 script/font）
+curl -sS http://127.0.0.1:3001/chat-preview.html | grep -E 'v3-csp-self|jsdelivr|googleapis|marked.min'
+# 期望：匹配 v3-csp-self；不应匹配 jsdelivr / googleapis / marked.min
 ```
 
-容器名以实际为准。镜像重建后需重做 `docker cp`。
+容器名以实际为准。镜像重建后需重做 `docker cp`。CSP 说明见 [fork-specs/0001-chat-preview-cross-project-auth-fix.md](../fork-specs/0001-chat-preview-cross-project-auth-fix.md)「修复四」。
 
 ### 4.4 内存诊断
 
