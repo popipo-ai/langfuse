@@ -21,7 +21,7 @@ import { AnnotateDrawer } from "@/src/features/scores/components/AnnotateDrawer"
 import { Button } from "@/src/components/ui/button";
 import { CommentDrawerButton } from "@/src/features/comments/CommentDrawerButton";
 import { useSession } from "next-auth/react";
-import { Download, ExternalLinkIcon, MessageSquareText } from "lucide-react";
+import { Download, ExternalLinkIcon } from "lucide-react";
 import { usePostHogClientCapture } from "@/src/features/posthog-analytics/usePostHogClientCapture";
 import Page from "@/src/components/layouts/page";
 import {
@@ -237,14 +237,6 @@ export const SessionPage: React.FC<{
     objectType: "SESSION",
   });
 
-  const openChatPreview = useCallback(() => {
-    const url = `/chat-preview.html?projectId=${encodeURIComponent(
-      projectId,
-    )}&sessionId=${encodeURIComponent(sessionId)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
-    capture("session_detail:chat_preview_button_click");
-  }, [capture, projectId, sessionId]);
-
   const downloadSessionAsJson = useCallback(async () => {
     // Fetch fresh session and trace comments data
     const [sessionCommentsData, traceCommentsData] = await Promise.all([
@@ -398,14 +390,6 @@ export const SessionPage: React.FC<{
                 listKey="sessions"
               />
             )}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={openChatPreview}
-              title="Chat Preview"
-            >
-              <MessageSquareText className="h-4 w-4" />
-            </Button>
             <Button
               variant="outline"
               size="icon"
@@ -570,15 +554,6 @@ export const SessionEventsPage: React.FC<{
     "showCorrections",
     false,
   );
-  const capture = usePostHogClientCapture();
-
-  const openChatPreview = useCallback(() => {
-    const url = `/chat-preview.html?projectId=${encodeURIComponent(
-      projectId,
-    )}&sessionId=${encodeURIComponent(sessionId)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
-    capture("session_detail:chat_preview_button_click");
-  }, [capture, projectId, sessionId]);
 
   const sessionCommentCounts = api.comments.getCountByObjectId.useQuery(
     {
@@ -915,14 +890,6 @@ export const SessionEventsPage: React.FC<{
                 listKey="sessions"
               />
             )}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={openChatPreview}
-              title="Chat Preview"
-            >
-              <MessageSquareText className="h-4 w-4" />
-            </Button>
             <CommentDrawerButton
               key="comment"
               variant="outline"
