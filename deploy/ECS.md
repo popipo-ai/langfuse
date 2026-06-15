@@ -13,7 +13,7 @@
 | 环境 | COMPOSE_FILE | langfuse-web |
 |------|----------------|--------------|
 | 本地开发 | `docker-compose.yml`（默认） | 本地 `build` → `langfuse-web:custom`，端口 `3000` |
-| ECS 生产 | `docker-compose.yml:docker-compose.prod.yml` | GHCR 拉取 `ghcr.io/popipo-ai/langfuse-web:custom`，`127.0.0.1:3001:3000`，`pull_policy: always`，无本地 build |
+| ECS 生产 | `docker-compose.yml:docker-compose.prod.yml` | Harbor 拉取 `${LANGFUSE_WEB_IMAGE}`（默认 tag `:custom`），`127.0.0.1:3001:3000`，`pull_policy: always`，无本地 build |
 
 在 ECS 的 `.env` 或 shell 中设置：
 
@@ -22,6 +22,31 @@ export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
 ```
 
 也可写入 `/opt/langfuse/.env`（与 `.env.prod.example` 注释一致）。
+
+在 `/opt/langfuse/.env` 中设置 Harbor 镜像（与 CI 推送的 `:custom` tag 一致）：
+
+```bash
+LANGFUSE_WEB_IMAGE=harbor.example.com/popipo/langfuse-web:custom
+```
+
+ECS 拉取前需 `docker login` 公司 Harbor（机器人账号，仅需一次或 token 过期时重做）。
+
+### 1.0 CI 推送到 Harbor（GitHub Actions secrets）
+
+Workflow：`.github/workflows/build-web.yml`（模式同 `anlop` 的 `deploy.yml`：login → build-push）。
+
+在仓库 **Settings → Secrets and variables → Actions** 配置：
+
+| Secret | 示例 | 说明 |
+|--------|------|------|
+| `HARBOR_REGISTRY` | `harbor.example.com` | 不含 `https://` |
+| `HARBOR_PROJECT` | `popipo` | Harbor 项目名 |
+| `HARBOR_USERNAME` | `robot$ci` | 机器人账号 |
+| `HARBOR_PASSWORD` | `***` | 机器人 token |
+
+推送 tag：`${REGISTRY}/${PROJECT}/langfuse-web:custom` 与 `:sha`。
+
+若 Harbor 仅内网可达，将 workflow 的 `runs-on` 改为公司 **self-hosted** runner（`pir` 的 Rust CI 即用 self-hosted macOS）。
 
 ### 1.1 `LANGFUSE_UI_CUSTOM_HEAD_TAGS`
 
@@ -65,7 +90,7 @@ export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
 git fetch origin
 git pull origin feat/dark-mode-reskin   # 或当前生产跟踪分支
 
-# 仅更新 web（拉 GHCR，不本地 build）
+# 仅更新 web（拉 Harbor，不本地 build）
 docker compose pull langfuse-web
 docker compose up -d langfuse-web
 
@@ -183,7 +208,7 @@ docker compose up -d langfuse-web
 ### 6.6 生产 web 镜像
 
 - ECS **不**在服务器上 `docker compose build langfuse-web`。
-- 使用 **GHCR**：`ghcr.io/popipo-ai/langfuse-web:custom`，由 CI 构建推送。
+- 使用 **公司 Harbor**，由 `.github/workflows/build-web.yml` 构建推送；ECS 通过 `LANGFUSE_WEB_IMAGE` 拉取。
 
 ---
 

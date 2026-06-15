@@ -2,8 +2,8 @@
 # Usage: export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
 #
 # Keeps docker-compose.yml as fork dev defaults (local build, :3000).
-# Production web: pull GHCR image, bind 127.0.0.1:3001, inject Chat Preview script.
-#
+# Production web: pull Harbor image, bind 127.0.0.1:3001, inject Chat Preview script.
+# Set LANGFUSE_WEB_IMAGE in /opt/langfuse/.env (see .env.prod.example).#
 # Requires Docker Compose v2.24+ for `build: !reset` when merging.
 # On older compose: remove the `build: !reset null` line below AND delete the
 # `build:` block under langfuse-web in docker-compose.yml on the server only —
@@ -12,12 +12,12 @@
 services:
   langfuse-web:
     build: !reset null
-    image: ghcr.io/popipo-ai/langfuse-web:custom
+    image: ${LANGFUSE_WEB_IMAGE}
     pull_policy: always
     ports:
       - 127.0.0.1:3001:3000
     environment:
-      # Injected into <head> by custom GHCR web image (source: chat-preview-inject.js).
+      # Injected into <head> by custom web image (source: chat-preview-inject.js).
       # Override in /opt/langfuse/.env if you change the script.
       LANGFUSE_UI_CUSTOM_HEAD_TAGS: >-
         <script>(function(){'use strict';function isSessionPage(){return/\/project\/[^/]+\/sessions\/[^/]+/.test(location.pathname)&&!/\/chat-preview/.test(location.pathname)}function getSessionId(){var m=location.pathname.match(/\/sessions\/([^/?]+)/);return m?decodeURIComponent(m[1]):null}function getProjectId(){var m=location.pathname.match(/\/project\/([^/]+)/);return m?m[1]:null}function buildUrl(){var projectId=getProjectId(),sessionId=getSessionId();if(!projectId||!sessionId)return null;return'/chat-preview.html?projectId='+encodeURIComponent(projectId)+'&sessionId='+encodeURIComponent(sessionId)}var _origOpen=window.open;window.open=function(url){if(isSessionPage()&&typeof url==='string'&&url.indexOf('blob:')===0){var newUrl=buildUrl();if(newUrl){try{URL.revokeObjectURL(url)}catch(e){}return _origOpen.call(window,newUrl,'_blank')}}return _origOpen.apply(window,arguments)}})();</script>
