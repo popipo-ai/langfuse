@@ -85,7 +85,11 @@ export const events = {
     "duplicate_button_click",
     "duplicate_form_submit",
   ],
-  session_detail: ["publish_button_click", "download_button_click"],
+  session_detail: [
+    "publish_button_click",
+    "download_button_click",
+    "chat_preview_button_click",
+  ],
   eval_config: [
     "new_form_submit",
     "new_form_open",
