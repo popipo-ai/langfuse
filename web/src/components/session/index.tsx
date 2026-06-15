@@ -399,6 +399,7 @@ export const SessionPage: React.FC<{
               variant="outline"
               size="icon"
               onClick={() => {
+                capture("session_detail:chat_preview_button_click");
                 openChatPreview({ sessionId, projectId });
               }}
               title="Chat Preview"
@@ -569,6 +570,7 @@ export const SessionEventsPage: React.FC<{
     "showCorrections",
     false,
   );
+  const capture = usePostHogClientCapture();
 
   const sessionCommentCounts = api.comments.getCountByObjectId.useQuery(
     {
@@ -909,6 +911,7 @@ export const SessionEventsPage: React.FC<{
               variant="outline"
               size="icon"
               onClick={() => {
+                capture("session_detail:chat_preview_button_click");
                 openChatPreview({ sessionId, projectId });
               }}
               title="Chat Preview"
