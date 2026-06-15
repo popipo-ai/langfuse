@@ -13,7 +13,7 @@
 | 环境 | COMPOSE_FILE | langfuse-web |
 |------|----------------|--------------|
 | 本地开发 | `docker-compose.yml`（默认） | 本地 `build` → `langfuse-web:custom`，端口 `3000` |
-| ECS 生产 | `docker-compose.yml:docker-compose.prod.yml` | Harbor 拉取 `${LANGFUSE_WEB_IMAGE}`（默认 tag `:custom`），`127.0.0.1:3001:3000`，`pull_policy: always`，无本地 build |
+| ECS 生产 | `docker-compose.yml:docker-compose.prod.yml` | Harbor `cn-harbor.d5render.com:8443/popipo/langfuse-web:*`，`127.0.0.1:3001:3000`，`pull_policy: always`，无本地 build |
 
 在 ECS 的 `.env` 或 shell 中设置：
 
@@ -23,30 +23,37 @@ export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
 
 也可写入 `/opt/langfuse/.env`（与 `.env.prod.example` 注释一致）。
 
-在 `/opt/langfuse/.env` 中设置 Harbor 镜像（与 CI 推送的 `:custom` tag 一致）：
+在 `/opt/langfuse/.env` 中设置 Harbor 镜像（与 workspace CI 推送 tag 一致）：
 
 ```bash
-LANGFUSE_WEB_IMAGE=harbor.example.com/popipo/langfuse-web:custom
+# 滚动最新（feat/dark-mode-reskin 分支每次 CI 更新）
+LANGFUSE_WEB_IMAGE=cn-harbor.d5render.com:8443/popipo/langfuse-web:feat-dark-mode-reskin-latest
+
+# 或固定到某次构建（不可变）
+# LANGFUSE_WEB_IMAGE=cn-harbor.d5render.com:8443/popipo/langfuse-web:sha-<short_sha>
 ```
 
-ECS 拉取前需 `docker login` 公司 Harbor（机器人账号，仅需一次或 token 过期时重做）。
+ECS 拉取前需 `docker login cn-harbor.d5render.com:8443`（用户 `popipo`，密码见公司密钥库）。
 
-### 1.0 CI 推送到 Harbor（GitHub Actions secrets）
+### 1.0 CI 推送到 Harbor（对齐 workspace 约定）
 
-Workflow：`.github/workflows/build-web.yml`（模式同 `anlop` 的 `deploy.yml`：login → build-push）。
+Workflow：`.github/workflows/build-web.yml`（参照 `workspace/.github/workflows/popipo-bff-ci.yml`、`pir-release.yml`）。
 
-在仓库 **Settings → Secrets and variables → Actions** 配置：
+| 项 | 值 |
+|----|-----|
+| Registry | `cn-harbor.d5render.com:8443` |
+| 项目/镜像 | `popipo/langfuse-web` |
+| 不可变 tag | `sha-<short_sha>` |
+| 滚动 tag | `feat-dark-mode-reskin-latest` |
+| Runner | `[self-hosted, Linux, X64]` |
 
-| Secret | 示例 | 说明 |
-|--------|------|------|
-| `HARBOR_REGISTRY` | `harbor.example.com` | 不含 `https://` |
-| `HARBOR_PROJECT` | `popipo` | Harbor 项目名 |
-| `HARBOR_USERNAME` | `robot$ci` | 机器人账号 |
-| `HARBOR_PASSWORD` | `***` | 机器人 token |
+仓库 **Settings → Secrets → Actions** 仅需：
 
-推送 tag：`${REGISTRY}/${PROJECT}/langfuse-web:custom` 与 `:sha`。
+| Secret | 说明 |
+|--------|------|
+| `HARBOR_PASSWORD` | Harbor 用户 `popipo` 的密码 |
 
-若 Harbor 仅内网可达，将 workflow 的 `runs-on` 改为公司 **self-hosted** runner（`pir` 的 Rust CI 即用 self-hosted macOS）。
+更完整的 Popipo Harbor / 发布 API 说明见 monorepo `workspace/deploy/popipo发布文档.md`。
 
 ### 1.1 `LANGFUSE_UI_CUSTOM_HEAD_TAGS`
 
